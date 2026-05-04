@@ -16,7 +16,7 @@
             overflow-x: hidden;
         }
         
-        /* EFEITOS TECNOLÓGICOS - VERMELHO/LARANJA */
+        /* EFEITOS TECNOLÓGICOS */
         .effects-fullscreen {
             position: fixed;
             top: 0;
@@ -120,11 +120,8 @@
         }
         
         :root {
-            --bg-card: #111111;
             --primary: #ff3366;
             --secondary: #ff6600;
-            --text-dim: #a0a0a0;
-            --border: #1f1f1f;
         }
         
         .container { max-width: 1300px; margin: 0 auto; padding: 40px 24px; position: relative; z-index: 2; }
@@ -140,7 +137,6 @@
         .card:hover {
             border-color: var(--primary);
             transform: translateY(-3px);
-            box-shadow: 0 20px 35px -15px rgba(0,0,0,0.5);
         }
         
         .header-card {
@@ -155,7 +151,6 @@
             background-clip: text;
             color: transparent;
         }
-        .header-card p { color: var(--text-dim); margin-top: 12px; }
         .divider {
             width: 80px;
             height: 3px;
@@ -219,10 +214,6 @@
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border: none;
             color: white;
-        }
-        .btn-primary:hover {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            box-shadow: 0 0 20px rgba(255, 51, 102, 0.3);
         }
         .btn-danger {
             border-color: rgba(255, 51, 102, 0.5);
@@ -323,7 +314,7 @@
 </div>
 
 <div class="container" id="app">
-    <!-- LOGIN -->
+    <!-- LOGIN/LOCALSTORAGE -->
     <div id="loginScreen">
         <div style="max-width: 450px; margin: 80px auto;">
             <div class="card" style="text-align: center;">
@@ -331,16 +322,15 @@
                 <p style="margin-bottom: 30px;">Workflow Manager</p>
                 
                 <div id="loginPanel">
-                    <input type="email" id="loginEmail" class="input-premium" placeholder="E-mail">
+                    <input type="text" id="loginUser" class="input-premium" placeholder="Usuário">
                     <input type="password" id="loginPass" class="input-premium" placeholder="Senha">
                     <button id="btnLogin" class="btn-premium btn-primary">Entrar</button>
                     <div style="margin-top:15px;"><span id="showReg" class="btn-premium" style="padding:8px 20px;">Criar Conta</span></div>
                 </div>
                 
                 <div id="regPanel" class="hidden">
-                    <input type="text" id="regName" class="input-premium" placeholder="Nome">
-                    <input type="email" id="regEmail" class="input-premium" placeholder="E-mail">
-                    <input type="password" id="regPass" class="input-premium" placeholder="Senha (mínimo 6)">
+                    <input type="text" id="regUser" class="input-premium" placeholder="Usuário">
+                    <input type="password" id="regPass" class="input-premium" placeholder="Senha (mínimo 4)">
                     <button id="btnReg" class="btn-premium btn-primary">Criar Conta</button>
                     <div style="margin-top:15px;"><span id="backLogin" class="btn-premium" style="padding:8px 20px;">← Voltar</span></div>
                 </div>
@@ -353,7 +343,6 @@
     <div id="mainScreen" class="hidden">
         <div class="header-card">
             <h1>V8Flow</h1>
-            <p>WORKFLOW MANAGER</p>
             <div class="divider"></div>
         </div>
 
@@ -397,7 +386,7 @@
         <div class="modal-content">
             <h2 style="color:#ff3366;">⚙️ Configurações</h2>
             <input type="password" id="oldPassword" class="input-premium" placeholder="Senha atual">
-            <input type="password" id="newPassword" class="input-premium" placeholder="Nova senha (mínimo 6)">
+            <input type="password" id="newPassword" class="input-premium" placeholder="Nova senha (mínimo 4)">
             <input type="password" id="confirmPassword" class="input-premium" placeholder="Confirmar">
             <button id="changePasswordBtn" class="btn-premium btn-primary" style="width:100%;">Alterar Senha</button>
             <hr style="margin: 20px 0;">
@@ -408,9 +397,6 @@
     </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <script>
     // REDE NEURAL
     const canvas = document.getElementById('neuralCanvas');
@@ -484,35 +470,31 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // FIREBASE
-    const firebaseConfig = {
-        apiKey: "AIzaSyCdZD4gh5ww5weYdA4NbTDiLDmvo8g8wt8",
-        authDomain: "v8flow-36a44.firebaseapp.com",
-        projectId: "v8flow-36a44",
-        storageBucket: "v8flow-36a44.firebasestorage.app",
-        messagingSenderId: "1080405965158",
-        appId: "1:1080405965158:web:5a0ec9bc6ce365a50270a7"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
+    // ========== LOCALSTORAGE ==========
     let currentUser = null;
+    let users = {};
     let workflows = [];
     let selectedWorkflowId = null;
 
-    function showMsg(msg, error = true) {
-        const el = document.getElementById('authMsg');
-        el.innerHTML = msg;
-        el.style.color = error ? '#ff6600' : '#00ffaa';
-        setTimeout(() => el.innerHTML = '', 3000);
+    function loadData() {
+        const savedUsers = localStorage.getItem('v8flow_users');
+        if (savedUsers) users = JSON.parse(savedUsers);
+        else users = {};
     }
-
-    async function loadWorkflows() {
-        if (!currentUser) return;
-        const snap = await db.collection('workflows').where('userId', '==', currentUser.uid).orderBy('createdAt', 'desc').get();
-        workflows = [];
-        snap.forEach(doc => workflows.push({ id: doc.id, ...doc.data() }));
+    function saveUsers() { localStorage.setItem('v8flow_users', JSON.stringify(users)); }
+    
+    function saveWorkflows() {
+        if (currentUser) {
+            localStorage.setItem(`v8flow_workflows_${currentUser}`, JSON.stringify(workflows));
+        }
+    }
+    
+    function loadWorkflows() {
+        if (currentUser) {
+            const saved = localStorage.getItem(`v8flow_workflows_${currentUser}`);
+            if (saved) workflows = JSON.parse(saved);
+            else workflows = [];
+        }
         renderWorkflows();
         updateStats();
     }
@@ -521,20 +503,19 @@
         const container = document.getElementById('workflowsList');
         if (!workflows.length) { container.innerHTML = '<div style="text-align:center; padding:20px;">Nenhum workflow</div>'; return; }
         container.innerHTML = '';
-        workflows.forEach(wf => {
+        workflows.forEach((wf, idx) => {
             const div = document.createElement('div');
             div.className = 'workflow-item';
-            if (wf.id === selectedWorkflowId) div.classList.add('active');
+            if (selectedWorkflowId === idx) div.classList.add('active');
             div.innerHTML = `<span>${wf.name}</span> <span>${wf.steps?.length || 0} etapas</span>`;
-            div.onclick = () => selectWorkflow(wf.id);
+            div.onclick = () => selectWorkflow(idx);
             container.appendChild(div);
         });
-        updateStats();
     }
 
-    async function selectWorkflow(id) {
-        selectedWorkflowId = id;
-        const wf = workflows.find(w => w.id === id);
+    function selectWorkflow(idx) {
+        selectedWorkflowId = idx;
+        const wf = workflows[idx];
         if (wf) {
             document.getElementById('stepsCard').classList.remove('hidden');
             renderSteps(wf.steps || []);
@@ -547,150 +528,144 @@
         const container = document.getElementById('stepsList');
         if (!steps.length) { container.innerHTML = '<div style="text-align:center; padding:20px;">Nenhuma etapa</div>'; return; }
         container.innerHTML = '';
-        steps.forEach((step, idx) => {
+        steps.forEach((step, stepIdx) => {
             const div = document.createElement('div');
             div.className = 'step-card';
             if (step.completed) div.classList.add('completed');
             div.innerHTML = `
-                <span>${idx+1}. ${step.name}</span>
+                <span>${stepIdx+1}. ${step.name}</span>
                 <div>
-                    <button class="btn-premium" style="padding:5px 12px; margin-right:5px;" onclick="toggleStep('${selectedWorkflowId}', ${idx})">${step.completed ? 'Reabrir' : 'Concluir'}</button>
-                    <button class="btn-premium btn-danger" style="padding:5px 12px;" onclick="deleteStep('${selectedWorkflowId}', ${idx})">Excluir</button>
+                    <button class="btn-premium" style="padding:5px 12px; margin-right:5px;" onclick="toggleStep(${selectedWorkflowId}, ${stepIdx})">${step.completed ? 'Reabrir' : 'Concluir'}</button>
+                    <button class="btn-premium btn-danger" style="padding:5px 12px;" onclick="deleteStep(${selectedWorkflowId}, ${stepIdx})">Excluir</button>
                 </div>
             `;
             container.appendChild(div);
         });
     }
 
-    window.toggleStep = async (workflowId, stepIdx) => {
-        const wf = workflows.find(w => w.id === workflowId);
-        if (!wf) return;
-        wf.steps[stepIdx].completed = !wf.steps[stepIdx].completed;
-        await db.collection('workflows').doc(workflowId).update({ steps: wf.steps });
-        const index = workflows.findIndex(w => w.id === workflowId);
-        workflows[index] = wf;
-        renderSteps(wf.steps);
+    window.toggleStep = (workflowIdx, stepIdx) => {
+        workflows[workflowIdx].steps[stepIdx].completed = !workflows[workflowIdx].steps[stepIdx].completed;
+        saveWorkflows();
+        renderSteps(workflows[workflowIdx].steps);
         updateStats();
     };
 
-    window.deleteStep = async (workflowId, stepIdx) => {
-        const wf = workflows.find(w => w.id === workflowId);
-        if (!wf) return;
-        wf.steps.splice(stepIdx, 1);
-        await db.collection('workflows').doc(workflowId).update({ steps: wf.steps });
-        const index = workflows.findIndex(w => w.id === workflowId);
-        workflows[index] = wf;
-        renderSteps(wf.steps);
+    window.deleteStep = (workflowIdx, stepIdx) => {
+        workflows[workflowIdx].steps.splice(stepIdx, 1);
+        saveWorkflows();
+        renderSteps(workflows[workflowIdx].steps);
         updateStats();
     };
 
-    async function addStep(name) {
-        if (!selectedWorkflowId) { alert('Selecione um workflow'); return false; }
-        const wf = workflows.find(w => w.id === selectedWorkflowId);
-        if (!wf) return false;
-        if (!wf.steps) wf.steps = [];
-        wf.steps.push({ name, completed: false });
-        await db.collection('workflows').doc(selectedWorkflowId).update({ steps: wf.steps });
-        const index = workflows.findIndex(w => w.id === selectedWorkflowId);
-        workflows[index] = wf;
-        renderSteps(wf.steps);
+    function addStep(name) {
+        if (selectedWorkflowId === null) { alert('Selecione um workflow'); return false; }
+        if (!workflows[selectedWorkflowId].steps) workflows[selectedWorkflowId].steps = [];
+        workflows[selectedWorkflowId].steps.push({ name, completed: false });
+        saveWorkflows();
+        renderSteps(workflows[selectedWorkflowId].steps);
         updateStats();
         return true;
     }
 
-    async function createWorkflow(name) {
-        await db.collection('workflows').add({
-            userId: currentUser.uid,
-            name: name,
-            steps: [],
-            createdAt: new Date()
-        });
-        await loadWorkflows();
+    function createWorkflow(name) {
+        workflows.push({ name, steps: [] });
+        saveWorkflows();
+        loadWorkflows();
     }
 
-    async function deleteWorkflow() {
-        if (!selectedWorkflowId) { alert('Selecione um workflow'); return; }
+    function deleteWorkflow() {
+        if (selectedWorkflowId === null) { alert('Selecione um workflow'); return; }
         if (!confirm('Excluir este workflow?')) return;
-        await db.collection('workflows').doc(selectedWorkflowId).delete();
+        workflows.splice(selectedWorkflowId, 1);
         selectedWorkflowId = null;
         document.getElementById('stepsCard').classList.add('hidden');
-        await loadWorkflows();
+        saveWorkflows();
+        loadWorkflows();
     }
 
-    async function deleteAllWorkflows() {
+    function deleteAllWorkflows() {
         if (!confirm('Excluir TODOS os workflows?')) return;
-        for (const wf of workflows) {
-            await db.collection('workflows').doc(wf.id).delete();
-        }
+        workflows = [];
         selectedWorkflowId = null;
         document.getElementById('stepsCard').classList.add('hidden');
-        await loadWorkflows();
+        saveWorkflows();
+        loadWorkflows();
     }
 
-    async function deleteAccount() {
+    function deleteAccount() {
         if (!confirm('Excluir sua conta e TODOS os dados?')) return;
-        for (const wf of workflows) {
-            await db.collection('workflows').doc(wf.id).delete();
-        }
-        await db.collection('users').doc(currentUser.uid).delete();
-        await currentUser.delete();
-        alert('Conta excluída');
-        window.location.reload();
+        delete users[currentUser];
+        saveUsers();
+        logout();
     }
 
-    async function changePassword(oldPwd, newPwd, confirmPwd) {
-        if (newPwd.length < 6) { alert('Nova senha mínimo 6'); return false; }
+    function changePassword(oldPwd, newPwd, confirmPwd) {
+        if (newPwd.length < 4) { alert('Nova senha mínimo 4'); return false; }
         if (newPwd !== confirmPwd) { alert('Senhas não conferem'); return false; }
-        try {
-            const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, oldPwd);
-            await currentUser.reauthenticateWithCredential(cred);
-            await currentUser.updatePassword(newPwd);
-            alert('Senha alterada!');
-            return true;
-        } catch(e) { alert('Erro: ' + e.message); return false; }
+        if (users[currentUser].password !== oldPwd) { alert('Senha atual incorreta'); return false; }
+        users[currentUser].password = newPwd;
+        saveUsers();
+        alert('Senha alterada!');
+        return true;
     }
 
     function updateStats() {
         document.getElementById('totalWorkflows').innerText = workflows.length;
-        if (selectedWorkflowId) {
-            const wf = workflows.find(w => w.id === selectedWorkflowId);
-            if (wf && wf.steps?.length) {
-                const completed = wf.steps.filter(s => s.completed).length;
-                const percent = Math.floor((completed / wf.steps.length) * 100);
-                document.getElementById('totalProgress').innerText = percent;
-            } else {
-                document.getElementById('totalProgress').innerText = '0';
-            }
+        if (selectedWorkflowId !== null && workflows[selectedWorkflowId] && workflows[selectedWorkflowId].steps?.length) {
+            const steps = workflows[selectedWorkflowId].steps;
+            const completed = steps.filter(s => s.completed).length;
+            const percent = Math.floor((completed / steps.length) * 100);
+            document.getElementById('totalProgress').innerText = percent;
         } else {
             document.getElementById('totalProgress').innerText = '0';
         }
     }
 
+    // AUTH LOCAL
+    function register(user, pass) {
+        if (users[user]) { alert('Usuário já existe'); return false; }
+        users[user] = { password: pass };
+        saveUsers();
+        alert('Conta criada! Faça login.');
+        return true;
+    }
+
+    function login(user, pass) {
+        if (!users[user] || users[user].password !== pass) { alert('Usuário ou senha inválidos'); return false; }
+        currentUser = user;
+        document.getElementById('userName').innerHTML = user;
+        loadWorkflows();
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('mainScreen').classList.remove('hidden');
+        document.getElementById('stepsCard').classList.add('hidden');
+        selectedWorkflowId = null;
+        return true;
+    }
+
+    function logout() {
+        currentUser = null;
+        workflows = [];
+        selectedWorkflowId = null;
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('mainScreen').classList.add('hidden');
+        document.getElementById('stepsCard').classList.add('hidden');
+        document.getElementById('loginUser').value = '';
+        document.getElementById('loginPass').value = '';
+    }
+
     // EVENTOS
-    document.getElementById('btnLogin').onclick = async () => {
-        const email = document.getElementById('loginEmail').value;
-        const pwd = document.getElementById('loginPass').value;
-        try {
-            await auth.signInWithEmailAndPassword(email, pwd);
-            showMsg('✅ Login realizado!', false);
-        } catch(e) { showMsg('❌ ' + e.message); }
+    document.getElementById('btnLogin').onclick = () => {
+        const user = document.getElementById('loginUser').value.trim();
+        const pass = document.getElementById('loginPass').value;
+        if (user && pass) login(user, pass);
+        else alert('Preencha todos os campos');
     };
-
-    document.getElementById('btnReg').onclick = async () => {
-        const name = document.getElementById('regName').value;
-        const email = document.getElementById('regEmail').value;
-        const pwd = document.getElementById('regPass').value;
-        if (pwd.length < 6) { showMsg('❌ Senha mínimo 6'); return; }
-        try {
-            const cred = await auth.createUserWithEmailAndPassword(email, pwd);
-            await cred.user.updateProfile({ displayName: name });
-            await db.collection('users').doc(cred.user.uid).set({ name, email });
-            showMsg('✅ Conta criada! Faça login.', false);
-            document.getElementById('regPanel').classList.add('hidden');
-            document.getElementById('loginPanel').classList.remove('hidden');
-        } catch(e) { showMsg('❌ ' + e.message); }
+    document.getElementById('btnReg').onclick = () => {
+        const user = document.getElementById('regUser').value.trim();
+        const pass = document.getElementById('regPass').value;
+        if (user && pass && pass.length >= 4) register(user, pass);
+        else alert('Usuário e senha (mínimo 4) obrigatórios');
     };
-
     document.getElementById('showReg').onclick = () => {
         document.getElementById('loginPanel').classList.add('hidden');
         document.getElementById('regPanel').classList.remove('hidden');
@@ -701,27 +676,27 @@
         document.getElementById('loginPanel').classList.remove('hidden');
         document.getElementById('authMsg').innerHTML = '';
     };
-    document.getElementById('logoutBtn').onclick = async () => { await auth.signOut(); location.reload(); };
-    document.getElementById('createWorkflowBtn').onclick = async () => {
+    document.getElementById('logoutBtn').onclick = () => { logout(); };
+    document.getElementById('createWorkflowBtn').onclick = () => {
         const name = document.getElementById('newWorkflowName').value.trim();
         if (!name) { alert('Digite um nome'); return; }
-        await createWorkflow(name);
+        createWorkflow(name);
         document.getElementById('newWorkflowName').value = '';
     };
-    document.getElementById('addStepBtn').onclick = async () => {
+    document.getElementById('addStepBtn').onclick = () => {
         const name = document.getElementById('newStepName').value.trim();
         if (!name) { alert('Digite o nome da etapa'); return; }
-        await addStep(name);
+        addStep(name);
         document.getElementById('newStepName').value = '';
     };
-    document.getElementById('deleteWorkflowBtn').onclick = async () => { await deleteWorkflow(); };
-    document.getElementById('deleteAllWorkflowsBtn').onclick = async () => { await deleteAllWorkflows(); };
-    document.getElementById('deleteAccountBtn').onclick = async () => { await deleteAccount(); };
-    document.getElementById('changePasswordBtn').onclick = async () => {
+    document.getElementById('deleteWorkflowBtn').onclick = () => { deleteWorkflow(); };
+    document.getElementById('deleteAllWorkflowsBtn').onclick = () => { deleteAllWorkflows(); };
+    document.getElementById('deleteAccountBtn').onclick = () => { deleteAccount(); };
+    document.getElementById('changePasswordBtn').onclick = () => {
         const old = document.getElementById('oldPassword').value;
         const newPwd = document.getElementById('newPassword').value;
         const confirm = document.getElementById('confirmPassword').value;
-        await changePassword(old, newPwd, confirm);
+        changePassword(old, newPwd, confirm);
         document.getElementById('oldPassword').value = '';
         document.getElementById('newPassword').value = '';
         document.getElementById('confirmPassword').value = '';
@@ -730,23 +705,7 @@
     document.getElementById('closeModal').onclick = () => { document.getElementById('settingsModal').style.display = 'none'; };
     window.onclick = (e) => { if (e.target === document.getElementById('settingsModal')) document.getElementById('settingsModal').style.display = 'none'; };
 
-    // AUTH STATE
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            currentUser = user;
-            const userDoc = await db.collection('users').doc(user.uid).get();
-            document.getElementById('userName').innerHTML = userDoc.data()?.name || user.email;
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('mainScreen').classList.remove('hidden');
-            await loadWorkflows();
-        } else {
-            currentUser = null;
-            document.getElementById('loginScreen').classList.remove('hidden');
-            document.getElementById('mainScreen').classList.add('hidden');
-            document.getElementById('stepsCard').classList.add('hidden');
-            selectedWorkflowId = null;
-        }
-    });
+    loadData();
 </script>
 </body>
 </html>
